@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Bus Route on Roads with Moving Icon</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+    }
+
+    header {
+      background: #0077cc;
+      color: #fff;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 1.5em;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    footer {
+      background: #0077cc;
+      color: #fff;
+      text-align: center;
+      padding: 8px;
+      font-size: 0.9em;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+    }
+
+    #map {
+      height: calc(100vh - 100px);
+    }
+
+    .leaflet-popup-content-wrapper {
+      background: #fff;
+      color: #333;
+      font-size: 0.95em;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .leaflet-container {
+      border: 4px solid #0077cc;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    🚍 Smart Yatra
+  </header>
+
+  <div id="map"></div>
+
+  <footer>
+    &copy; 2025 Bus Tracking App
+  </footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const map = L.map('map').setView([27.7, 85.3], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    const busIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/61/61488.png',
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -15],
+    });
+
+    const start = [85.3, 27.7];
+    const end = [85.32, 27.72];
+
+    fetch(
+      `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?overview=full&geometries=geojson`
+    )
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.code !== 'Ok') {
+          alert('Routing error: ' + data.message);
+          return;
+        }
+
+        const coords = data.routes[0].geometry.coordinates;
+        const latlngs = coords.map((c) => [c[1], c[0]]);
+
+        const routeLine = L.polyline(latlngs, { color: 'blue', weight: 5 }).addTo(map);
+        map.fitBounds(routeLine.getBounds());
+
+        let currentIndex = 0;
+        const busMarker = L.marker(latlngs[0], { icon: busIcon }).addTo(map);
+        busMarker.bindPopup('Bus 1');
+
+        function moveBus() {
+          // Randomly decide to stop (20% chance)
+          if (Math.random() < 0.2) {
+            console.log("Bus is stopping temporarily...");
+            // Pause for 3 seconds then try moving again
+            setTimeout(moveBus, 3000);
+            return;
+          }
+
+          currentIndex++;
+          if (currentIndex >= latlngs.length) currentIndex = 0;
+          busMarker.setLatLng(latlngs[currentIndex]);
+          map.panTo(latlngs[currentIndex]);
+
+          // Schedule next move
+          setTimeout(moveBus, 1000);
+        }
+
+        moveBus(); // Start moving
+      })
+      .catch((error) => {
+        console.error('Error fetching route:', error);
+        alert('Failed to get route');
+      });
+  </script>
+</body>
+</html>
